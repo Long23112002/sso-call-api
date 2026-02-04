@@ -58,6 +58,15 @@ if (window.electronAPI) {
     }
 }
 
+function checkForUpdatesClick() {
+    if (window.electronAPI && typeof window.electronAPI.checkForUpdates === 'function') {
+        window.electronAPI.checkForUpdates();
+        showAlert('Đang kiểm tra bản cập nhật...', 'info');
+    } else {
+        showAlert('Chỉ có trên bản cài đặt (.dmg/.exe)', 'info');
+    }
+}
+
 // Load SSO config from main process
 async function loadSSOConfig() {
     try {
@@ -1571,6 +1580,12 @@ function toggleFormPanel() {
     }
 }
 
+// Unescape chuỗi CMD (Windows): \" -> ", \\ -> \
+function unescapeCurlDoubleQuoted(s) {
+    if (typeof s !== 'string') return s;
+    return s.replace(/\\\\/g, '\\').replace(/\\"/g, '"');
+}
+
 // Parse cURL command
 function parseCurlCommand(curlCommand) {
     const result = {
@@ -1581,8 +1596,9 @@ function parseCurlCommand(curlCommand) {
         body: ''
     };
 
-    // Clean up the command - remove escaped newlines and normalize spaces
-    curlCommand = curlCommand.replace(/\\\n/g, ' ')
+    // Chuẩn hóa line ending (Windows \r\n -> \n) rồi gộp dòng và khoảng trắng
+    curlCommand = curlCommand.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+        .replace(/\\\n/g, ' ')
         .replace(/\\\r?\n/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
@@ -1620,17 +1636,19 @@ function parseCurlCommand(curlCommand) {
         result.method = methodMatch[1].toUpperCase();
     }
 
-    // Extract headers (-H or --header) - handle both single and double quotes, and escaped quotes
+    // Extract headers (-H or --header): single quote, double quote (có thể có \" bên trong - CMD), hoặc không quote
     const headerPatterns = [
-        /(?:-H|--header)\s+'([^']+)'/gi,
-        /(?:-H|--header)\s+"([^"]+)"/gi,
+        /(?:-H|--header)\s+'([^']*)'/gi,
+        /(?:-H|--header)\s+"((?:[^"\\]|\\.)*)"/gi,
         /(?:-H|--header)\s+([^\s-][^\n]+?)(?=\s+-|$)/gi
     ];
 
-    for (const pattern of headerPatterns) {
+    for (let pi = 0; pi < headerPatterns.length; pi++) {
+        const pattern = headerPatterns[pi];
         let headerMatch;
         while ((headerMatch = pattern.exec(curlCommand)) !== null) {
-            const header = headerMatch[1].trim();
+            let header = headerMatch[1].trim();
+            if (pi === 1) header = unescapeCurlDoubleQuoted(header);
             const colonIndex = header.indexOf(':');
             if (colonIndex > 0) {
                 const key = header.substring(0, colonIndex).trim();
@@ -1648,33 +1666,36 @@ function parseCurlCommand(curlCommand) {
         }
     }
 
-    // Also try to extract cookie from --cookie or -b flag
+    // Also try to extract cookie from --cookie or -b flag (CMD có thể dùng "..." với \")
     const cookiePatterns = [
-        /(?:--cookie|-b)\s+'([^']+)'/i,
-        /(?:--cookie|-b)\s+"([^"]+)"/i,
+        /(?:--cookie|-b)\s+'([^']*)'/i,
+        /(?:--cookie|-b)\s+"((?:[^"\\]|\\.)*)"/i,
         /(?:--cookie|-b)\s+([^\s-]+)/i
     ];
 
-    for (const pattern of cookiePatterns) {
-        const cookieMatch = curlCommand.match(pattern);
+    for (let ci = 0; ci < cookiePatterns.length; ci++) {
+        const cookieMatch = curlCommand.match(cookiePatterns[ci]);
         if (cookieMatch) {
-            result.cookie = cookieMatch[1];
+            result.cookie = ci === 1 ? unescapeCurlDoubleQuoted(cookieMatch[1]) : cookieMatch[1];
             break;
         }
     }
 
-    // Extract data/body (-d, --data, ...); nhiều -d khi dùng -G
+    // Extract data/body (-d, --data, ...); CMD trên Windows dùng "{\"key\":\"value\"}"
     const hasGet = /\b(-G|--get)\b/i.test(curlCommand);
     const dataPatterns = [
-        /(?:-d|--data|--data-raw|--data-binary)\s+'([^']+)'/gi,
-        /(?:-d|--data|--data-raw|--data-binary)\s+"([^"]+)"/gi,
-        /(?:-d|--data|--data-raw|--data-binary)\s+\$'([^']+)'/gi
+        /(?:-d|--data|--data-raw|--data-binary)\s+'([^']*)'/gi,
+        /(?:-d|--data|--data-raw|--data-binary)\s+"((?:[^"\\]|\\.)*)"/gi,
+        /(?:-d|--data|--data-raw|--data-binary)\s+\$'([^']*)'/gi
     ];
     const allDataParts = [];
-    for (const pattern of dataPatterns) {
+    for (let di = 0; di < dataPatterns.length; di++) {
+        const pattern = dataPatterns[di];
         let dataMatch;
         while ((dataMatch = pattern.exec(curlCommand)) !== null) {
-            allDataParts.push(dataMatch[1].trim());
+            let part = dataMatch[1].trim();
+            if (di === 1) part = unescapeCurlDoubleQuoted(part);
+            allDataParts.push(part);
         }
     }
     if (allDataParts.length > 0) {
@@ -1761,17 +1782,14 @@ function fillFormFromCurl(curlCommand) {
     }
 }
 
-// Add paste event listener to URL field
+// Add paste event listener to URL field (dùng clipboardData để đúng trên cả Windows)
 document.getElementById('apiUrl').addEventListener('paste', (e) => {
-    setTimeout(() => {
-        const pastedText = e.target.value.trim();
-
-        // Check if pasted text looks like a cURL command
-        if (pastedText.toLowerCase().startsWith('curl ')) {
-            e.preventDefault();
-            fillFormFromCurl(pastedText);
-        }
-    }, 10);
+    const raw = (e.clipboardData && e.clipboardData.getData('text/plain')) || '';
+    const pastedText = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+    if (pastedText.toLowerCase().startsWith('curl ')) {
+        e.preventDefault();
+        fillFormFromCurl(pastedText);
+    }
 });
 
 // Add keyboard shortcuts

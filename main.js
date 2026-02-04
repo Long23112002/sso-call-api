@@ -140,6 +140,15 @@ function setupAutoUpdater() {
     }, 5000);
 }
 
+ipcMain.handle('check-for-updates', async () => {
+    if (!autoUpdater) return;
+    try {
+        await autoUpdater.checkForUpdates();
+    } catch (e) {
+        console.error('Check for updates failed:', e);
+    }
+});
+
 // Escape string for safe use inside single-quoted JS string (injected script)
 function escapeForJS(str) {
     if (str == null) return '';

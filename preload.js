@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Auto-update: nhận thông báo từ main process
     onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (event, data) => callback(data)),
-    onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, data) => callback(data))
+    onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, data) => callback(data)),
+    checkForUpdates: () => ipcRenderer.invoke('check-for-updates')
 });
 
