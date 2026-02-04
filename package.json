@@ -1,6 +1,6 @@
 {
     "name": "pdf-viewer",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Electron app for API calls without CORS - PDF Viewer",
     "main": "main.js",
     "scripts": {
