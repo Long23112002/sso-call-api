@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Caller Pro</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Ace Editor -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.2/ace.js"></script>
+</head>
+
+<body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Đang đăng nhập...</div>
+        </div>
+    </div>
+
+    <div class="container">
+      
+
+        <!-- Main Content -->
+        <div class="main-content" id="mainContent">
+            <!-- Left Panel - Input Form -->
+            <div class="left-panel" id="formPanel">
+                <div class="form-section">
+                    <!-- URL Input -->
+                    <div class="input-group">
+                        <label for="apiUrl">
+                            <i data-lucide="globe" class="label-icon"></i>
+                            API Endpoint
+                        </label>
+                        <input type="text" id="apiUrl" placeholder="https://api.example.com/v1/resource"
+                            class="input-field">
+                    </div>
+
+                    <!-- Query Params (key-value) -->
+                    <div class="input-group query-params-group">
+                        <label>
+                            <i data-lucide="list-filter" class="label-icon"></i>
+                            Query Params
+                            <span class="optional-badge">Optional</span>
+                        </label>
+                        <div id="queryParamsList" class="params-list">
+                            <div class="param-row">
+                                <input type="text" class="input-field param-key" placeholder="Key">
+                                <input type="text" class="input-field param-value" placeholder="Value">
+                                <button type="button" class="btn btn-icon-sm param-remove" onclick="removeParamRow(this)" title="Xóa">
+                                    <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm add-param-btn" onclick="addParamRow()">
+                            <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                            Thêm param
+                        </button>
+                    </div>
+
+                    <!-- Method Selection -->
+                    <div class="input-group">
+                        <label for="method">
+                            <i data-lucide="activity" class="label-icon"></i>
+                            HTTP Method
+                        </label>
+                        <select id="method" class="select-field">
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                            <option value="PUT">PUT</option>
+                            <option value="DELETE">DELETE</option>
+                            <option value="PATCH">PATCH</option>
+                        </select>
+                    </div>
+
+                    <!-- SSO Section -->
+                    <div class="sso-section">
+                        <div class="sso-header">
+                            <label>
+                                <i data-lucide="shield-check" class="label-icon"></i>
+                                SSO Authentication
+                            </label>
+                            <button class="btn btn-icon-sm" onclick="openSSOConfigModal()" title="Cấu hình SSO">
+                                <i data-lucide="settings" style="width: 16px; height: 16px;"></i>
+                            </button>
+                        </div>
+                        <div class="sso-controls">
+                            <div class="input-group" style="flex: 1; margin-bottom: 0;">
+                                <select id="accountSelect" class="select-field">
+                                    <option value="">-- Chọn tài khoản --</option>
+                                    <option value="none">Login thủ công</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-sso" onclick="triggerSSOLogin()" id="ssoLoginBtn">
+                                <i data-lucide="log-in" class="btn-icon"></i>
+                                Đăng nhập
+                            </button>
+                            <div class="sso-status" id="ssoStatus">
+                                <span class="status-dot offline"></span>
+                                <span id="ssoStatusText">Chưa login</span>
+                            </div>
+                        </div>
+
+                        <!-- Unit Selection - Shows after login -->
+                        <div class="unit-selection" id="unitSelection" style="display: none;">
+                            <div class="unit-select-wrapper">
+                                <label for="unitSelect">
+                                    <i data-lucide="database" class="label-icon"></i>
+                                    Chọn dữ liệu
+                                </label>
+                                <div class="unit-select-row">
+                                    <select id="unitSelect" class="select-field" onchange="onUnitSelect()">
+                                        <option value="">-- Chọn dữ liệu --</option>
+                                    </select>
+                                    <button class="btn btn-icon-sm" onclick="loadUnits()" title="Tải lại danh sách">
+                                        <i data-lucide="refresh-cw" style="width: 16px; height: 16px;"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="selectedUnitInfo" class="selected-unit-info" style="display: none;">
+                                <div class="unit-info-row">
+                                    <i data-lucide="database"
+                                        style="width: 14px; height: 14px; color: var(--secondary);"></i>
+                                    <span id="selectedUnitName">Chưa chọn</span>
+                                    <button class="btn-copy" onclick="copyUnitName()" title="Copy tên CSDL">
+                                        <i data-lucide="copy" style="width: 12px; height: 12px;"></i>
+                                    </button>
+                                </div>
+                                <div class="unit-info-row">
+                                    <i data-lucide="key"
+                                        style="width: 14px; height: 14px; color: var(--primary-light);"></i>
+                                    <span id="selectedUnitId" class="unit-id-text">ID</span>
+                                    <button class="btn-copy" onclick="copyUnitId()" title="Copy accAccountingDataId">
+                                        <i data-lucide="copy" style="width: 12px; height: 12px;"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="sso-info" id="ssoInfo" style="display: none;">
+                            <button class="btn btn-sm btn-secondary" onclick="applySSOCredentials()">
+                                <i data-lucide="check-circle" style="width: 14px; height: 14px;"></i>
+                                Áp dụng Credentials
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="clearSSOSession()">
+                                <i data-lucide="log-out" style="width: 14px; height: 14px;"></i>
+                                Đăng xuất
+                            </button>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="autoRedirect403" checked>
+                            <label for="autoRedirect403">Tự động mở SSO khi gặp lỗi 403</label>
+                        </div>
+                    </div>
+
+                    <!-- Cookie Input -->
+                    <div class="input-group">
+                        <label for="cookie">
+                            <i data-lucide="cookie" class="label-icon"></i>
+                            Cookie
+                            <span class="optional-badge">Optional</span>
+                        </label>
+                        <textarea id="cookie" placeholder="JSESSIONID=abc123; session=xyz..." class="textarea-field"
+                            rows="2"></textarea>
+                    </div>
+
+                    <!-- Token Input -->
+                    <div class="input-group">
+                        <label for="token">
+                            <i data-lucide="key-round" class="label-icon"></i>
+                            Authorization Token
+                            <span class="optional-badge">Optional</span>
+                        </label>
+                        <input type="text" id="token" placeholder="Bearer eyJhbGciOiJIUzI1NiIs..." class="input-field">
+                    </div>
+
+                    <!-- Custom Headers -->
+                    <div class="input-group">
+                        <label for="customHeaders">
+                            <i data-lucide="file-json" class="label-icon"></i>
+                            Custom Headers
+                            <span class="optional-badge">JSON</span>
+                        </label>
+                        <textarea id="customHeaders" placeholder='{"Content-Type": "application/json"}'
+                            class="textarea-field" rows="3"></textarea>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="requestBody">
+                            <i data-lucide="code" class="label-icon"></i>
+                            Request Body
+                            <div class="label-actions">
+                                <label class="body-type-option"><input type="radio" name="bodyType" value="json" checked> JSON</label>
+                                <label class="body-type-option"><input type="radio" name="bodyType" value="formData"> Form Data</label>
+                                <span class="optional-badge badge-clickable" onclick="beautifyJSON()" id="beautifyJsonBtn"
+                                    title="Định dạng JSON (Prettify)">
+                                    <i data-lucide="sparkles" style="width: 10px; height: 10px;"></i>
+                                </span>
+                            </div>
+                        </label>
+                        <div id="bodyJsonWrap" class="body-type-panel">
+                            <div id="requestBody" class="editor-container"></div>
+                        </div>
+                        <div id="bodyFormDataWrap" class="body-type-panel" style="display: none;">
+                            <div class="form-data-list" id="formDataList">
+                                <div class="form-data-row">
+                                    <input type="text" class="input-field form-data-key" placeholder="Key">
+                                    <select class="select-field form-data-type" onchange="onFormDataRowTypeChange(this)">
+                                        <option value="text">Text</option>
+                                        <option value="file">File</option>
+                                    </select>
+                                    <input type="text" class="input-field form-data-value" placeholder="Value">
+                                    <input type="file" class="form-data-file" style="display: none;" onchange="onFormDataFileSelect(this)">
+                                    <span class="form-data-file-name"></span>
+                                    <button type="button" class="btn btn-icon-sm param-remove" onclick="removeFormDataRow(this)" title="Xóa">
+                                        <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-secondary btn-sm add-param-btn" onclick="addFormDataRow()">
+                                <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                                Thêm field
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="button-group">
+                        <button class="btn btn-primary" onclick="sendRequest()">
+                            <i data-lucide="send" class="btn-icon"></i>
+                            Gửi Request
+                        </button>
+                        <button class="btn btn-secondary" onclick="clearForm()">
+                            <i data-lucide="rotate-ccw" class="btn-icon"></i>
+                            Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resize bar: kéo để thay đổi kích thước 2 panel -->
+            <div class="resize-handle" id="resizeHandle" title="Kéo để thay đổi kích thước"></div>
+
+            <!-- Right Panel - Response Preview -->
+            <div class="right-panel">
+                <div class="panel-header">
+                    <div class="status-badge" id="statusBadge"></div>
+                </div>
+
+                <!-- Alert Container -->
+                <div id="alertContainer"></div>
+
+                <!-- Loading Indicator -->
+                <div class="loading-container" id="loadingContainer" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <p>Đang xử lý request...</p>
+                </div>
+
+                <!-- Find in Response (Ctrl+F) - hiện khi đã có response -->
+                <div id="findBar" class="find-bar" style="display: none;">
+                    <i data-lucide="search" class="find-bar-icon"></i>
+                    <input type="text" id="findInput" class="find-input" placeholder="Tìm trong response (Ctrl+F)..."
+                        autocomplete="off">
+                    <span id="findMatchCount" class="find-match-count"></span>
+                    <button type="button" class="btn btn-icon-sm find-btn" onclick="findPrev()" title="Trước (Shift+Enter)">
+                        <i data-lucide="chevron-up" style="width: 14px; height: 14px;"></i>
+                    </button>
+                    <button type="button" class="btn btn-icon-sm find-btn" onclick="findNext()" title="Sau (Enter)">
+                        <i data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
+                    </button>
+                    <button type="button" class="btn btn-icon-sm find-btn find-close" onclick="closeFindBar()" title="Đóng (Esc)">
+                        <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+                    </button>
+                </div>
+
+                <!-- Tab Navigation -->
+                <div class="tabs" id="tabContainer" style="display: none;">
+                    <button class="tab-btn active" data-tab="preview" onclick="switchTab('preview')">
+                        <i data-lucide="eye" style="width: 16px; height: 16px;"></i> Preview
+                    </button>
+                    <button class="tab-btn" data-tab="table" onclick="switchTab('table')">
+                        <i data-lucide="table" style="width: 16px; height: 16px;"></i> Bảng
+                    </button>
+                    <button class="tab-btn" data-tab="raw" onclick="switchTab('raw')">
+                        <i data-lucide="braces" style="width: 16px; height: 16px;"></i> Raw JSON
+                    </button>
+                    <button class="tab-btn" data-tab="headers" onclick="switchTab('headers')">
+                        <i data-lucide="list" style="width: 16px; height: 16px;"></i> Headers
+                    </button>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="tab-content" id="tabContent">
+                    <!-- Preview Tab -->
+                    <div class="tab-pane active" id="previewPane">
+                        <div id="previewPlaceholder" class="preview-container">
+                            <div id="previewContent" class="preview-content">
+                                <div class="empty-state">
+                                    <div class="empty-icon">🚀</div>
+                                    <p>Sẵn sàng gửi request</p>
+                                    <p class="empty-hint">Nhập URL và nhấn "Gửi Request" để bắt đầu</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Table Tab: chọn mảng trong JSON để xem dạng bảng -->
+                    <div class="tab-pane" id="tablePane">
+                        <div class="table-view-toolbar">
+                            <label for="tableArraySelect" class="table-view-label">
+                                <i data-lucide="database" style="width: 14px; height: 14px;"></i>
+                                Chọn mảng trong response:
+                            </label>
+                            <select id="tableArraySelect" class="select-field table-array-select" onchange="renderTableFromSelectedPath()">
+                                <option value="">-- Chọn mảng (array) --</option>
+                            </select>
+                            <div class="table-column-picker-wrap">
+                                <button type="button" class="btn btn-secondary btn-sm" id="tableColumnPickerBtn" onclick="toggleTableColumnPicker()" title="Chọn cột hiển thị" style="display: none;">
+                                    <i data-lucide="columns" style="width: 14px; height: 14px;"></i>
+                                    Chọn cột
+                                </button>
+                                <div id="tableColumnPicker" class="table-column-picker" style="display: none;">
+                                    <div class="table-column-picker-title">Hiển thị cột:</div>
+                                    <div class="table-column-picker-actions">
+                                        <button type="button" class="table-column-picker-action" onclick="tableColumnSelectAll()">Chọn tất cả</button>
+                                        <button type="button" class="table-column-picker-action" onclick="tableColumnDeselectAll()">Bỏ chọn tất cả</button>
+                                    </div>
+                                    <div id="tableColumnPickerList" class="table-column-picker-list"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="tableViewContainer" class="table-view-container">
+                            <div class="empty-state" id="tableViewEmpty">
+                                <div class="empty-icon">📋</div>
+                                <p>Chọn mảng ở trên để xem dạng bảng</p>
+                                <p class="empty-hint">Chỉ hiển thị khi response JSON có mảng đối tượng</p>
+                            </div>
+                            <div id="tableViewTableWrap" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Raw Data Tab -->
+                    <div class="tab-pane" id="rawPane">
+                        <pre id="rawData" class="code-block"></pre>
+                    </div>
+
+                    <!-- Headers Tab -->
+                    <div class="tab-pane" id="headersPane">
+                        <pre id="headersData" class="code-block">// Headers sẽ hiển thị ở đây</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+
+    <!-- SSO Config Modal -->
+    <div class="modal-overlay" id="ssoConfigModal" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>
+                    <i data-lucide="settings" style="width: 20px; height: 20px;"></i>
+                    Cấu hình SSO
+                </h3>
+                <button class="btn btn-icon-sm" onclick="closeSSOConfigModal()">
+                    <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="ssoLoginUrl">
+                        <i data-lucide="link" class="label-icon"></i>
+                        SSO Login URL
+                    </label>
+                    <input type="text" id="ssoLoginUrl" class="input-field" placeholder="https://sso.example.com/login">
+                </div>
+                <div class="input-group">
+                    <label for="ssoServiceUrl">
+                        <i data-lucide="external-link" class="label-icon"></i>
+                        Service URL (Redirect)
+                    </label>
+                    <input type="text" id="ssoServiceUrl" class="input-field" placeholder="https://your-app.com">
+                </div>
+                <div class="input-group">
+                    <label for="ssoCallbackUrl">
+                        <i data-lucide="webhook" class="label-icon"></i>
+                        Callback API URL
+                    </label>
+                    <input type="text" id="ssoCallbackUrl" class="input-field"
+                        placeholder="https://api.example.com/auth/callback">
+                </div>
+                <div class="input-group">
+                    <label for="ssoAppCode">
+                        <i data-lucide="hash" class="label-icon"></i>
+                        App Code
+                    </label>
+                    <input type="text" id="ssoAppCode" class="input-field" placeholder="APP_CODE">
+                </div>
+
+                <div class="sso-advanced-config">
+                    <div class="config-divider">Selectors (Automation)</div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label for="selectorUser">User Field Picker</label>
+                            <input type="text" id="selectorUser" class="input-field" placeholder="#username">
+                        </div>
+                        <div class="input-group">
+                            <label for="selectorPass">Pass Field Picker</label>
+                            <input type="text" id="selectorPass" class="input-field" placeholder="#password">
+                        </div>
+                        <div class="input-group">
+                            <label for="selectorSubmit">Login Button Picker</label>
+                            <input type="text" id="selectorSubmit" class="input-field"
+                                placeholder="button[type='submit']">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="account-manager">
+                    <div class="config-divider">Quản lý tài khoản</div>
+                    <div class="account-form">
+                        <input type="text" id="newAccountName" class="input-field" placeholder="Tên gợi nhớ">
+                        <input type="text" id="newAccountUser" class="input-field" placeholder="Username">
+                        <input type="password" id="newAccountPass" class="input-field" placeholder="Password">
+                        <button class="btn btn-primary btn-sm" onclick="addNewAccount()">
+                            <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+                        </button>
+                    </div>
+                    <div class="account-list" id="accountList">
+                        <!-- Accounts will be listed here -->
+                        <div class="empty-hint" style="text-align: center; padding: 10px;">Chưa có tài khoản nào</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeSSOConfigModal()">Hủy</button>
+                <button class="btn btn-primary" onclick="saveSSOConfig()">
+                    <i data-lucide="check" style="width: 16px; height: 16px;"></i>
+                    Lưu cấu hình
+                </button>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

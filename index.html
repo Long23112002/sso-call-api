@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Viewer - Base64</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #4a5568;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .input-section {
+            padding: 30px;
+            background: #f7fafc;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 12px;
+            border: 2px solid #cbd5e0;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #38a169;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(245, 101, 101, 0.4);
+        }
+
+        .pdf-container {
+            padding: 20px;
+            display: none;
+        }
+
+        .pdf-container.active {
+            display: block;
+        }
+
+        #pdfViewer {
+            width: 100%;
+            height: 800px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        .alert-error {
+            background: #fed7d7;
+            color: #c53030;
+            border-left: 4px solid #f56565;
+        }
+
+        .alert-success {
+            background: #c6f6d5;
+            color: #22543d;
+            border-left: 4px solid #48bb78;
+        }
+
+        .alert-info {
+            background: #bee3f8;
+            color: #2c5282;
+            border-left: 4px solid #4299e1;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .example-box {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .example-box h3 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .example-box code {
+            display: block;
+            background: #1a202c;
+            color: #68d391;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 PDF Viewer - Base64</h1>
+            <p>Paste base64 string từ response và xem PDF ngay</p>
+        </div>
+
+        <div class="input-section">
+            <div class="input-group">
+                <label for="base64Input">Nhập chuỗi Base64 hoặc JSON response:</label>
+                <textarea id="base64Input"
+                    placeholder='Paste base64 string hoặc JSON như: {"success": true, "data": {"pdfSrc": "JVBERi0xLjQK..."}}'>
+                </textarea>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-primary" onclick="viewPDF()">
+                    👁️ Xem PDF
+                </button>
+                <button class="btn-secondary" onclick="downloadPDF()">
+                    💾 Tải xuống PDF
+                </button>
+                <button class="btn-danger" onclick="clearAll()">
+                    🗑️ Xóa
+                </button>
+            </div>
+
+            <div id="alertContainer"></div>
+
+            <div class="example-box">
+                <h3>💡 Hướng dẫn sử dụng:</h3>
+                <p style="margin-bottom: 10px; color: #4a5568;">Bạn có thể paste theo 2 cách:</p>
+                <p style="margin: 5px 0; color: #718096;"><strong>1. JSON response:</strong></p>
+                <code>{"success": true, "data": {"pdfSrc": "JVBERi0xLjQK..."}}</code>
+                <p style="margin: 15px 0 5px 0; color: #718096;"><strong>2. Base64 string trực tiếp:</strong></p>
+                <code>JVBERi0xLjQKJeLjz9MKMyAwIG9iago8PC9UeXBlL...</code>
+            </div>
+        </div>
+
+        <div class="pdf-container" id="pdfContainer">
+            <iframe id="pdfViewer" title="PDF Viewer"></iframe>
+        </div>
+    </div>
+
+    <script>
+        function showAlert(message, type = 'info') {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertClass = `alert-${type}`;
+            alertContainer.innerHTML = `
+                <div class="alert ${alertClass}">
+                    ${message}
+                </div>
+            `;
+
+            setTimeout(() => {
+                alertContainer.innerHTML = '';
+            }, 5000);
+        }
+
+        function extractBase64(input) {
+            // Xóa khoảng trắng
+            input = input.trim();
+
+            // Thử parse JSON
+            try {
+                const json = JSON.parse(input);
+
+                // Kiểm tra các path có thể có
+                if (json.data && json.data.pdfSrc) {
+                    return json.data.pdfSrc;
+                }
+                if (json.pdfSrc) {
+                    return json.pdfSrc;
+                }
+                if (json.data) {
+                    return json.data;
+                }
+            } catch (e) {
+                // Không phải JSON, coi như base64 string
+            }
+
+            // Return input như base64 string
+            return input;
+        }
+
+        function viewPDF() {
+            const input = document.getElementById('base64Input').value.trim();
+
+            if (!input) {
+                showAlert('⚠️ Vui lòng nhập base64 string hoặc JSON response!', 'error');
+                return;
+            }
+
+            try {
+                const base64String = extractBase64(input);
+
+                if (!base64String) {
+                    showAlert('⚠️ Không tìm thấy base64 string trong input!', 'error');
+                    return;
+                }
+
+                // Tạo blob từ base64
+                const binaryString = atob(base64String);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                const blob = new Blob([bytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+
+                // Hiển thị PDF
+                document.getElementById('pdfViewer').src = url;
+                document.getElementById('pdfContainer').classList.add('active');
+
+                showAlert('✅ PDF đã được load thành công!', 'success');
+
+                // Scroll đến PDF viewer
+                setTimeout(() => {
+                    document.getElementById('pdfContainer').scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                }, 100);
+
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('❌ Lỗi: ' + error.message + '. Vui lòng kiểm tra lại base64 string!', 'error');
+            }
+        }
+
+        function downloadPDF() {
+            const input = document.getElementById('base64Input').value.trim();
+
+            if (!input) {
+                showAlert('⚠️ Vui lòng nhập base64 string hoặc JSON response!', 'error');
+                return;
+            }
+
+            try {
+                const base64String = extractBase64(input);
+
+                if (!base64String) {
+                    showAlert('⚠️ Không tìm thấy base64 string trong input!', 'error');
+                    return;
+                }
+
+                // Tạo blob từ base64
+                const binaryString = atob(base64String);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                const blob = new Blob([bytes], { type: 'application/pdf' });
+
+                // Tạo link download
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'document_' + new Date().getTime() + '.pdf';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showAlert('✅ PDF đã được tải xuống!', 'success');
+
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('❌ Lỗi: ' + error.message + '. Vui lòng kiểm tra lại base64 string!', 'error');
+            }
+        }
+
+        function clearAll() {
+            document.getElementById('base64Input').value = '';
+            document.getElementById('pdfViewer').src = '';
+            document.getElementById('pdfContainer').classList.remove('active');
+            document.getElementById('alertContainer').innerHTML = '';
+            showAlert('🗑️ Đã xóa dữ liệu!', 'info');
+        }
+
+        // Cho phép paste trực tiếp
+        document.getElementById('base64Input').addEventListener('paste', function (e) {
+            setTimeout(() => {
+                showAlert('📋 Đã paste! Nhấn "Xem PDF" để hiển thị.', 'info');
+            }, 100);
+        });
+    </script>
+</body>
+
+</html>
