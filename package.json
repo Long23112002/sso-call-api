@@ -27,9 +27,17 @@
         "electron": "^28.0.0",
         "electron-builder": "^26.7.0"
     },
+    "dependencies": {
+        "electron-updater": "^6.3.9"
+    },
     "build": {
         "appId": "com.pdfviewer.app",
         "productName": "PDF Viewer",
+        "publish": {
+            "provider": "github",
+            "owner": "Long23112002",
+            "repo": "sso-call-api"
+        },
         "directories": {
             "output": "dist"
         },

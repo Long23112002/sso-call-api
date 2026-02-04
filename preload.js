@@ -19,6 +19,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // SSO event listeners
     onSSOSuccess: (callback) => ipcRenderer.on('sso-success', (event, data) => callback(data)),
     onSSOError: (callback) => ipcRenderer.on('sso-error', (event, error) => callback(error)),
-    onSSOManualNeeded: (callback) => ipcRenderer.on('sso-manual-needed', (event) => callback())
+    onSSOManualNeeded: (callback) => ipcRenderer.on('sso-manual-needed', (event) => callback()),
+
+    // Clipboard (dùng trên Windows để copy cURL không bị lỗi)
+    writeClipboard: (text) => ipcRenderer.invoke('copy-to-clipboard', text),
+
+    // Auto-update: nhận thông báo từ main process
+    onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (event, data) => callback(data)),
+    onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, data) => callback(data))
 });
 

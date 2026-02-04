@@ -34,6 +34,28 @@ if (window.electronAPI) {
 
     // Load SSO config on startup
     loadSSOConfig();
+
+    // Auto-update: hiển thị banner khi có bản mới / đã tải xong
+    if (window.electronAPI.onUpdateAvailable) {
+        window.electronAPI.onUpdateAvailable((data) => {
+            const banner = document.getElementById('updateBanner');
+            const text = document.getElementById('updateBannerText');
+            if (banner && text) {
+                text.textContent = `Đang tải bản cập nhật v${data.version || 'mới'}...`;
+                banner.style.display = 'flex';
+            }
+        });
+    }
+    if (window.electronAPI.onUpdateDownloaded) {
+        window.electronAPI.onUpdateDownloaded((data) => {
+            const banner = document.getElementById('updateBanner');
+            const text = document.getElementById('updateBannerText');
+            if (banner && text) {
+                text.textContent = `Bản v${data.version || 'mới'} đã sẵn sàng. Bạn sẽ thấy hộp thoại khởi động lại để cập nhật.`;
+                banner.style.display = 'flex';
+            }
+        });
+    }
 }
 
 // Load SSO config from main process
@@ -760,6 +782,108 @@ function buildHeaders() {
 
     return headers;
 }
+
+// Lấy headers cho cURL (không showAlert khi parse lỗi)
+function buildHeadersForCurl() {
+    const headers = {};
+    const cookie = document.getElementById('cookie').value.trim();
+    if (cookie) headers['Cookie'] = cookie;
+    const token = document.getElementById('token').value.trim();
+    if (token) headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    const customHeaders = document.getElementById('customHeaders').value.trim();
+    if (customHeaders) {
+        try {
+            Object.assign(headers, JSON.parse(customHeaders));
+        } catch (e) { /* bỏ qua */ }
+    }
+    return headers;
+}
+
+// Tạo lệnh cURL (Bash): dùng single quote, escape ' thành '\''
+function buildCurlBash() {
+    const url = buildRequestUrl();
+    if (!url) return '';
+    const method = document.getElementById('method').value;
+    const headers = buildHeadersForCurl();
+    let body = '';
+    if (method !== 'GET') {
+        const bodyType = getBodyType();
+        if (bodyType === 'json') {
+            const raw = getRequestBodyValue().trim();
+            if (raw) body = raw;
+        }
+    }
+    const escapeBash = (s) => String(s).replace(/'/g, "'\\''");
+    let out = `curl -X ${method}`;
+    out += ` '${escapeBash(url)}'`;
+    Object.entries(headers).forEach(([k, v]) => {
+        out += ` -H '${escapeBash(k + ': ' + v)}'`;
+    });
+    if (body) out += ` -d '${escapeBash(body)}'`;
+    return out;
+}
+
+// Tạo lệnh cURL (CMD/Windows): dùng double quote, escape " và \
+function buildCurlCmd() {
+    const url = buildRequestUrl();
+    if (!url) return '';
+    const method = document.getElementById('method').value;
+    const headers = buildHeadersForCurl();
+    let body = '';
+    if (method !== 'GET') {
+        const bodyType = getBodyType();
+        if (bodyType === 'json') {
+            const raw = getRequestBodyValue().trim();
+            if (raw) body = raw;
+        }
+    }
+    const escapeCmd = (s) => String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    let out = `curl -X ${method}`;
+    out += ` "${escapeCmd(url)}"`;
+    Object.entries(headers).forEach(([k, v]) => {
+        out += ` -H "${escapeCmd(k + ': ' + v)}"`;
+    });
+    if (body) out += ` -d "${escapeCmd(body)}"`;
+    return out;
+}
+
+async function copyToClipboardSafe(text) {
+    if (window.electronAPI && typeof window.electronAPI.writeClipboard === 'function') {
+        await window.electronAPI.writeClipboard(text);
+        return;
+    }
+    await navigator.clipboard.writeText(text);
+}
+
+function copyCurlAs(format) {
+    const curlStr = format === 'cmd' ? buildCurlCmd() : buildCurlBash();
+    if (!curlStr) {
+        showAlert('Vui lòng nhập URL!', 'error');
+        return;
+    }
+    copyToClipboardSafe(curlStr).then(() => {
+        showAlert('Đã copy cURL (' + (format === 'cmd' ? 'CMD' : 'Bash') + ') vào clipboard!', 'success');
+    }).catch((err) => {
+        showAlert('Lỗi khi copy: ' + (err.message || err), 'error');
+    });
+    const dd = document.getElementById('copyCurlDropdown');
+    if (dd) dd.style.display = 'none';
+}
+
+function toggleCopyCurlDropdown() {
+    const dd = document.getElementById('copyCurlDropdown');
+    if (!dd) return;
+    dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+// Đóng dropdown Copy cURL khi click ra ngoài
+document.addEventListener('click', (e) => {
+    const wrap = document.querySelector('.copy-curl-wrap');
+    const dd = document.getElementById('copyCurlDropdown');
+    if (wrap && dd && dd.style.display !== 'none' && !wrap.contains(e.target)) {
+        dd.style.display = 'none';
+    }
+});
 
 // Send API request
 async function sendRequest() {

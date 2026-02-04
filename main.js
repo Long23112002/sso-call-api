@@ -1,8 +1,12 @@
-const { app, BrowserWindow, ipcMain, session } = require('electron');
+const { app, BrowserWindow, ipcMain, session, clipboard, dialog } = require('electron');
 const path = require('path');
 const https = require('https');
 const http = require('http');
 const fs = require('fs');
+let autoUpdater;
+if (app.isPackaged) {
+    try { autoUpdater = require('electron-updater').autoUpdater; } catch (e) { autoUpdater = null; }
+}
 
 const CONFIG_PATH = path.join(app.getPath('userData'), 'sso-config.json');
 
@@ -85,6 +89,7 @@ function createWindow() {
 app.whenReady().then(() => {
     loadSavedConfig();
     createWindow();
+    if (mainWindow && autoUpdater) setupAutoUpdater();
 });
 
 app.on('window-all-closed', () => {
@@ -98,6 +103,42 @@ app.on('activate', () => {
         createWindow();
     }
 });
+
+// ==================== Auto Update (chỉ chạy khi app đã build, không chạy trong dev) ====================
+function setupAutoUpdater() {
+    if (!autoUpdater || !mainWindow) return;
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.on('update-available', (info) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('update-available', { version: info.version, releaseNotes: info.releaseNotes });
+        }
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('update-downloaded', { version: info.version });
+            dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: 'Cập nhật sẵn sàng',
+                message: `Đã tải xong phiên bản ${info.version}. Khởi động lại ứng dụng để cập nhật?`,
+                buttons: ['Khởi động lại ngay', 'Để sau']
+            }).then(({ response }) => {
+                if (response === 0) autoUpdater.quitAndInstall(false, true);
+            });
+        }
+    });
+
+    autoUpdater.on('error', (err) => {
+        console.error('Auto-update error:', err);
+    });
+
+    // Kiểm tra update sau vài giây khi mở app (tránh block lúc khởi động)
+    setTimeout(() => {
+        autoUpdater.checkForUpdates().catch((e) => console.error('Check for updates failed:', e));
+    }, 5000);
+}
 
 // Escape string for safe use inside single-quoted JS string (injected script)
 function escapeForJS(str) {
@@ -643,4 +684,9 @@ ipcMain.handle('set-unit-session', async (event, { accAccountingDataId, userSess
 // Get SSO user data
 ipcMain.handle('get-sso-user-data', async () => {
     return ssoSessionData.userData;
+});
+
+// Copy text to clipboard (ổn định trên Windows hơn navigator.clipboard trong renderer)
+ipcMain.handle('copy-to-clipboard', (event, text) => {
+    clipboard.writeText(text || '');
 });

@@ -21,6 +21,11 @@
         </div>
     </div>
 
+    <!-- Update available banner (ẩn mặc định, hiện khi có bản mới) -->
+    <div id="updateBanner" class="update-banner" style="display: none;">
+        <span id="updateBannerText"></span>
+    </div>
+
     <div class="container">
       
 
@@ -237,6 +242,16 @@
                             <i data-lucide="rotate-ccw" class="btn-icon"></i>
                             Reset
                         </button>
+                        <div class="copy-curl-wrap">
+                            <button type="button" class="btn btn-secondary btn-sm" id="copyCurlBtn" onclick="toggleCopyCurlDropdown()" title="Copy dạng cURL">
+                                <i data-lucide="terminal" style="width: 14px; height: 14px;"></i>
+                                Copy cURL
+                            </button>
+                            <div id="copyCurlDropdown" class="copy-curl-dropdown" style="display: none;">
+                                <button type="button" class="copy-curl-option" onclick="copyCurlAs('bash')">cURL (Bash)</button>
+                                <button type="button" class="copy-curl-option" onclick="copyCurlAs('cmd')">cURL (CMD / Windows)</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
