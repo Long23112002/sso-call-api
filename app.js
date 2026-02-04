@@ -1019,6 +1019,26 @@ function displayResponse(response) {
         }
     }
 
+    const headersDataEl = document.getElementById('headersData');
+    if (headersDataEl) {
+        headersDataEl.textContent = JSON.stringify(response.headers, null, 2);
+    }
+
+    // Response binary (PDF / Excel) do server trả trực tiếp
+    if (response.isBinary && response.data) {
+        const rawDataEl = document.getElementById('rawData');
+        if (rawDataEl) rawDataEl.textContent = '(Binary: ' + (response.contentType || '').split(';')[0] + ' — xem tab Preview)';
+        currentBase64 = response.data;
+        previewBinary(response.data, response.contentType || '');
+        currentResponseJson = null;
+        fillTableArraySelect(null);
+        const tabContainer = document.getElementById('tabContainer');
+        if (tabContainer) tabContainer.style.display = 'flex';
+        const findBar = document.getElementById('findBar');
+        if (findBar) findBar.style.display = 'flex';
+        return;
+    }
+
     const rawDataEl = document.getElementById('rawData');
     if (rawDataEl) {
         try {
@@ -1027,11 +1047,6 @@ function displayResponse(response) {
         } catch (e) {
             rawDataEl.textContent = response.data;
         }
-    }
-
-    const headersDataEl = document.getElementById('headersData');
-    if (headersDataEl) {
-        headersDataEl.textContent = JSON.stringify(response.headers, null, 2);
     }
 
     previewResponse(response.data);
@@ -1049,6 +1064,85 @@ function displayResponse(response) {
     if (tabContainer) tabContainer.style.display = 'flex';
     const findBar = document.getElementById('findBar');
     if (findBar) findBar.style.display = 'flex';
+}
+
+// Preview binary: PDF (iframe) hoặc Excel (bảng từ SheetJS)
+function previewBinary(base64String, contentType) {
+    const previewContent = document.getElementById('previewContent');
+    if (!previewContent) return;
+
+    const ct = (contentType || '').split(';')[0].toLowerCase().trim();
+    const isPdf = ct === 'application/pdf';
+    const isExcel = /spreadsheet|vnd\.ms-excel|vnd\.openxmlformats-officedocument\.spreadsheetml/.test(ct);
+
+    if (isPdf) {
+        const blob = base64ToBlob(base64String, 'application/pdf');
+        const url = URL.createObjectURL(blob);
+        previewContent.innerHTML = `<iframe src="${url}" class="pdf-viewer" title="PDF Preview" id="pdfFrame"></iframe>`;
+        const pdfFrame = document.getElementById('pdfFrame');
+        if (pdfFrame) {
+            pdfFrame.style.cursor = 'pointer';
+            pdfFrame.addEventListener('click', toggleFullscreen);
+        }
+        return;
+    }
+
+    if (isExcel) {
+        previewExcelFromBase64(base64String, previewContent);
+        return;
+    }
+
+    previewContent.innerHTML = `
+        <div class="empty-state">
+            <div class="empty-icon">📄</div>
+            <p>File nhị phân</p>
+            <p class="empty-hint">Dùng nút "Tải xuống" để lưu file</p>
+        </div>
+    `;
+}
+
+// Render Excel (xlsx/xls) từ base64 ra bảng HTML (dùng SheetJS)
+function previewExcelFromBase64(base64String, container) {
+    if (typeof XLSX === 'undefined') {
+        container.innerHTML = `
+            <div class="empty-state">
+                <p>Đang tải thư viện Excel…</p>
+                <p class="empty-hint">Nếu không hiển thị, hãy tải file xuống và mở bằng Excel.</p>
+            </div>
+        `;
+        const script = document.createElement('script');
+        script.src = 'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js';
+        script.onload = () => previewExcelFromBase64(base64String, container);
+        document.head.appendChild(script);
+        return;
+    }
+    try {
+        const binary = atob(base64String);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const wb = XLSX.read(bytes, { type: 'array' });
+        const firstSheetName = wb.SheetNames[0];
+        if (!firstSheetName) {
+            container.innerHTML = '<div class="empty-state"><p>File Excel không có sheet.</p></div>';
+            return;
+        }
+        const ws = wb.Sheets[firstSheetName];
+        const html = XLSX.utils.sheet_to_html(ws, { id: 'excelPreviewTable', editable: false });
+        container.innerHTML = '<div class="excel-preview-wrap">' + html + '</div>';
+        const table = container.querySelector('#excelPreviewTable');
+        if (table) {
+            table.classList.add('excel-preview-table');
+        }
+    } catch (e) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">⚠️</div>
+                <p>Không thể đọc file Excel</p>
+                <p class="empty-hint">${escapeHtml(String(e.message))}</p>
+                <p class="empty-hint">Có thể tải xuống và mở bằng Excel.</p>
+            </div>
+        `;
+    }
 }
 
 // Preview response based on content type
@@ -1625,9 +1719,10 @@ function parseCurlCommand(curlCommand) {
         }
     });
     if (valid.length > 0) {
+        // Ưu tiên URL đầu tiên (sau "curl") — đó là request URL; URL trong Origin/Referer đứng sau nên không lấy
         const withQuery = valid.filter(c => c.url.includes('?'));
-        result.url = (withQuery.length > 0 ? withQuery : valid)
-            .sort((a, b) => b.index - a.index)[0].url;
+        const pool = withQuery.length > 0 ? withQuery : valid;
+        result.url = pool.sort((a, b) => a.index - b.index)[0].url;
     }
 
     // Extract method (-X or --request)

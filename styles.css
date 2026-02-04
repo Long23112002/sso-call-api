@@ -1410,6 +1410,44 @@ label {
     object-fit: contain;
 }
 
+/* Excel preview (SheetJS table) */
+.excel-preview-wrap {
+    overflow: auto;
+    padding: 16px;
+    height: 100%;
+    background: var(--bg-primary);
+}
+
+.excel-preview-table,
+#excelPreviewTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.excel-preview-table th,
+.excel-preview-table td,
+#excelPreviewTable th,
+#excelPreviewTable td {
+    border: 1px solid var(--border-color);
+    padding: 8px 10px;
+    text-align: left;
+}
+
+.excel-preview-table th,
+#excelPreviewTable th {
+    background: var(--bg-glass);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.excel-preview-table tr:hover td,
+#excelPreviewTable tr:hover td {
+    background: var(--bg-glass-hover);
+}
+
 /* ==================== JSON VIEWER ==================== */
 .json-viewer {
     background: var(--bg-primary);

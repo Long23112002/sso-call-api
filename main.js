@@ -542,19 +542,35 @@ ipcMain.handle('api-call', async (event, { url, method, headers, body }) => {
             };
 
             const req = httpModule.request(options, (res) => {
-                let data = '';
+                const chunks = [];
 
                 res.on('data', (chunk) => {
-                    data += chunk;
+                    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
                 });
 
                 res.on('end', () => {
-                    resolve({
-                        status: res.statusCode,
-                        statusText: res.statusMessage,
-                        headers: res.headers,
-                        data: data
-                    });
+                    const buf = Buffer.concat(chunks);
+                    const contentType = (res.headers['content-type'] || '').split(';')[0].toLowerCase().trim();
+                    const isPdf = contentType === 'application/pdf';
+                    const isExcel = /spreadsheet|vnd\.ms-excel|vnd\.openxmlformats-officedocument\.spreadsheetml/.test(contentType);
+
+                    if (isPdf || isExcel) {
+                        resolve({
+                            status: res.statusCode,
+                            statusText: res.statusMessage,
+                            headers: res.headers,
+                            data: buf.toString('base64'),
+                            isBinary: true,
+                            contentType: res.headers['content-type'] || (isPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                        });
+                    } else {
+                        resolve({
+                            status: res.statusCode,
+                            statusText: res.statusMessage,
+                            headers: res.headers,
+                            data: buf.toString('utf8')
+                        });
+                    }
                 });
             });
 
