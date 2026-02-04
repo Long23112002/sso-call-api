@@ -12,7 +12,8 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
-    
+    permissions:
+      contents: write   # Cần để tạo GitHub Release và upload file khi push tag
     strategy:
       matrix:
         arch: [x64, ia32]
@@ -34,6 +35,8 @@ jobs:
         run: npm run build:win -- --${{ matrix.arch }} ${{ startsWith(github.ref, 'refs/tags/') && '--publish always' || '' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Bỏ ký code trên CI để build nhanh, tránh treo/timeout bước signing
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

@@ -9,6 +9,8 @@ on:
 jobs:
   build-mac:
     runs-on: macos-latest
+    permissions:
+      contents: write   # Cần để tạo GitHub Release và upload file khi push tag
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

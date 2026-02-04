@@ -27,6 +27,9 @@ Chọn một trong hai:
    ```
 4. Vào [Actions](https://github.com/Long23112002/sso-call-api/actions): đợi cả workflow **Build Windows** và **Build Mac** chạy xanh. Sau đó vào [Releases](https://github.com/Long23112002/sso-call-api/releases): bản v1.0.2 sẽ có cả file Windows và file **.dmg** (Mac).
 
+**Nếu release v1.0.2 chưa có file .dmg (chỉ có file Windows):**  
+Vào [Actions](https://github.com/Long23112002/sso-call-api/actions) → chọn workflow **"Build Mac"** → **Run workflow** → **Run workflow** (branch: main). Đợi job chạy xong, bản Mac sẽ được đẩy vào đúng release v1.0.2 và app trên Mac mới thấy bản cập nhật.
+
 ## Bước 3: Test update trên Mac
 
 1. Mở app bản cũ đã cài (ví dụ 1.0.0) trên Mac.
